@@ -4,12 +4,6 @@
 (define (adder numbers)
   (define delimiters (list "," "\n"))
 
-  (define (delimiter-index delimiter)
-    (car delimiter))
-
-  (define (delimiter-length delimiter)
-    (cadr delimiter))
-
   (define (custom-delimiter?) 
     (equal? (string-ref numbers 0) #\/))
 
@@ -38,6 +32,28 @@
   (define (numbers-without-custom-delimiters)
     (substring numbers (+ (string-contains numbers "\n") 1)))
 
+  (define (adder-iter acc numbers)
+    (if (null? numbers)
+      acc
+      (let ([number-parser (number-parser numbers delimiters)])
+        (adder-iter (+ acc (car number-parser))
+                    (cdr number-parser)))))
+
+  (if (zero? (string-length numbers))
+    0 
+    (if (custom-delimiter?)
+      (begin
+        (add-custom-delimiters) 
+        (adder-iter 0 (numbers-without-custom-delimiters)))
+      (adder-iter 0 numbers))))
+
+(define (number-parser numbers delimiters)
+  (define (delimiter-index delimiter)
+    (car delimiter))
+
+  (define (delimiter-length delimiter)
+    (cadr delimiter))
+
   (define (min-indexed-delimiter delimiters)
     (if (null? delimiters)
       #f
@@ -47,6 +63,7 @@
                  smallest-delimiter))
              (car delimiters)
              (cdr delimiters))))
+
 
   (define (first-delimiter numbers)
     (min-indexed-delimiter 
@@ -75,18 +92,6 @@
                               (delimiter-length first-delimiter)))
         null)))
 
-  (define (adder-iter acc numbers)
-    (if (null? numbers)
-      acc
-      (adder-iter (+ acc (first-number numbers))
-                  (rest-numbers numbers))))
-
-  (if (zero? (string-length numbers))
-    0 
-    (if (custom-delimiter?)
-      (begin
-        (add-custom-delimiters) 
-        (adder-iter 0 (numbers-without-custom-delimiters)))
-      (adder-iter 0 numbers))))
+  (cons (first-number numbers) (rest-numbers numbers)))
 
 (provide adder)
