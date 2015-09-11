@@ -43,3 +43,6 @@
 
 (check-equal? (adder "//[111][222][333]\n4111422243334") 16
               "Lol this is weird.")
+
+(check-exn exn:fail?  (lambda () (adder "-1,2,3")) 
+           "It does not accept negatives")

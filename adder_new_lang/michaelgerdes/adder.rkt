@@ -1,9 +1,37 @@
 #lang racket/base
 (require srfi/13/string)
 
-(define (adder numbers)
-  (define delimiters (list "," "\n"))
+(define default-delimiters (list "," "\n"))
 
+(define (adder numbers)
+  (define (adder-iter acc numbers delimiters)
+    (if (null? numbers)
+      acc
+      (let ([number-parser (number-parser numbers delimiters)])
+        (adder-iter (+ acc (first-number number-parser))
+                    (rest-numbers number-parser)
+                    delimiters))))
+
+  (if (zero? (string-length numbers))
+    0 
+    (let ([delimiter-parser (delimiter-parser numbers)])
+      (adder-iter 0 
+                  (numbers-without-delimiter-defintions delimiter-parser) 
+                  (delimiters delimiter-parser)))))
+
+(define (first-number number-parser)
+  (car number-parser))
+
+(define (rest-numbers number-parser)
+  (cdr number-parser))
+
+(define (numbers-without-delimiter-defintions delimiter-parser)
+  (car delimiter-parser))
+
+(define (delimiters delimiter-parser)
+  (cadr delimiter-parser))
+
+(define (delimiter-parser numbers)
   (define (custom-delimiter?) 
     (equal? (string-ref numbers 0) #\/))
 
@@ -11,41 +39,29 @@
     (substring custom-delimiters 0 (string-contains custom-delimiters "]")))
 
   (define (rest-custom-delimiters custom-delimiters)
-    (let ([potential-delimiter (substring custom-delimiters (string-contains custom-delimiters "]"))])
+    (let ([potential-delimiter 
+            (substring custom-delimiters (string-contains custom-delimiters "]"))])
       (if (equal? (string-ref potential-delimiter 1) #\newline)
         null 
         (substring potential-delimiter 2))))
 
-  (define (add-multi-length-custom-delimiters custom-delimiters)
+  (define (multi-length-custom-delimiters custom-delimiters)
     (if (null? custom-delimiters)
       null
-      (begin
-        (set! delimiters (cons (first-custom-delimiter custom-delimiters) 
-                               delimiters))
-        (add-multi-length-custom-delimiters (rest-custom-delimiters custom-delimiters)))))
+      (cons (first-custom-delimiter custom-delimiters) 
+            (multi-length-custom-delimiters (rest-custom-delimiters custom-delimiters)))))
 
-  (define (add-custom-delimiters)
+  (define (custom-delimiters)
     (if (equal? (string-ref numbers 2) #\[)
-      (add-multi-length-custom-delimiters (substring numbers 3))
-      (set! delimiters (cons (string (string-ref numbers 2)) delimiters))))
+      (append (multi-length-custom-delimiters (substring numbers 3)) default-delimiters)
+      (cons (string (string-ref numbers 2)) default-delimiters)))
 
   (define (numbers-without-custom-delimiters)
     (substring numbers (+ (string-contains numbers "\n") 1)))
 
-  (define (adder-iter acc numbers)
-    (if (null? numbers)
-      acc
-      (let ([number-parser (number-parser numbers delimiters)])
-        (adder-iter (+ acc (car number-parser))
-                    (cdr number-parser)))))
-
-  (if (zero? (string-length numbers))
-    0 
-    (if (custom-delimiter?)
-      (begin
-        (add-custom-delimiters) 
-        (adder-iter 0 (numbers-without-custom-delimiters)))
-      (adder-iter 0 numbers))))
+  (if (custom-delimiter?) 
+    (list (numbers-without-custom-delimiters) (custom-delimiters))
+    (list numbers default-delimiters)))
 
 (define (number-parser numbers delimiters)
   (define (delimiter-index delimiter)
@@ -64,7 +80,6 @@
              (car delimiters)
              (cdr delimiters))))
 
-
   (define (first-delimiter numbers)
     (min-indexed-delimiter 
       (filter (lambda (delimiter)
@@ -79,11 +94,13 @@
   (define (first-number numbers)
     (let ([first-delimiter (first-delimiter numbers)])
       (let ([first-number (if first-delimiter
-                            (string->number (substring numbers 0 (delimiter-index first-delimiter)))
+                            (string->number 
+                              (substring numbers 0 (delimiter-index first-delimiter)))
                             (string->number numbers))])
-        (if (> first-number 1000)
-          0
-          first-number))))
+        (cond [(> first-number 1000) 0]
+              [(< first-number 0) (raise (make-exn:fail "No negatives."
+                                                        (current-continuation-marks)))]
+              [else first-number]))))
 
   (define (rest-numbers numbers)
     (let ([first-delimiter (first-delimiter numbers)])
